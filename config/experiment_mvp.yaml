@@ -1,0 +1,23 @@
+features:
+  momentum_windows: [5, 20]
+  vol_windows: [5, 20]
+
+target:
+  horizon_days: 1
+
+walkforward:
+  train_years: 3
+  test_months: 6
+  step_months: 3
+
+models:
+  - base_rate
+  - mom_sign_20d
+  - logit_plain
+
+portfolio:
+  vol_col: "rv_20d"
+  max_abs_weight: 1.0
+
+costs:
+  bps: [5, 10]

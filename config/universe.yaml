@@ -1,0 +1,14 @@
+symbols:
+  - SPY
+  - QQQ
+  - IWM
+  - TLT
+  - HYG
+  - GLD
+
+start_date: "2006-01-01"
+end_date: null
+
+benchmark_symbol: "SPY"
+context_symbols:
+  - SPY
