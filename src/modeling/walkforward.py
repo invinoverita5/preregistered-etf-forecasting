@@ -80,7 +80,7 @@ def _prediction_frame(
     train_base_rate: float,
     train_symbol_rates: pd.Series,
 ) -> pd.DataFrame:
-    fold_rows = test_df.loc[:, ["date", "symbol", "y_up", "fwd_ret_1d", "rv_20d"]].copy()
+    fold_rows = test_df.loc[:, ["date", "symbol", "y_up", "fwd_ret_target", "fwd_ret_1d", "rv_20d", "target_horizon_days"]].copy()
     fold_rows["fold_id"] = split["fold_id"]
     fold_rows["train_start"] = split["train_start"]
     fold_rows["train_end"] = split["train_end"]
@@ -103,7 +103,7 @@ def run_walkforward(features: pd.DataFrame) -> pd.DataFrame:
     )
 
     rows = []
-    clean = features.dropna(subset=BASE_FEATURE_COLS + ["y_up", "fwd_ret_1d"]).copy()
+    clean = features.dropna(subset=BASE_FEATURE_COLS + ["y_up", "fwd_ret_target", "fwd_ret_1d"]).copy()
     clean["y_up"] = clean["y_up"].astype(int)
 
     for split in splits:
@@ -168,8 +168,10 @@ def run_walkforward(features: pd.DataFrame) -> pd.DataFrame:
                 "date",
                 "symbol",
                 "y_up",
+                "fwd_ret_target",
                 "fwd_ret_1d",
                 "rv_20d",
+                "target_horizon_days",
                 "fold_id",
                 "train_start",
                 "train_end",

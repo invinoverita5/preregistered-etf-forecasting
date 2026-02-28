@@ -6,11 +6,7 @@ import numpy as np
 import pandas as pd
 
 from src.evaluation.metrics import forecast_metrics, portfolio_summary_table
-
-SUMMARY_NOTE = (
-    "Week 2 baseline comparison: regime conditioning was removed after failing the preregistered Week 1 criteria. "
-    "This run asks whether the drift-neutral plain logistic forecast adds value over simple economic baselines."
-)
+from src.utils.config import load_config
 
 FORECAST_ORDER = [
     "base_rate",
@@ -153,7 +149,37 @@ def _sanity_check(forecast_tbl: pd.DataFrame) -> tuple[bool, list[str]]:
     return (not suspicious), notes
 
 
+def _report_context(experiment: dict) -> tuple[str, str, str]:
+    rebalance = experiment["portfolio"].get("rebalance", "D")
+    horizon_days = int(experiment["target"]["horizon_days"])
+    if rebalance == "W" and horizon_days > 1:
+        label = "Week 4" if horizon_days == 5 else "Week 5" if horizon_days == 10 else "Target Horizon"
+        return (
+            f"{label} {horizon_days}D Target Horizon Comparison",
+            f"{label} target-horizon comparison: the walk-forward protocol, features, and baselines are unchanged. "
+            f"The model label moved from 1-day to {horizon_days}-day forward returns while the forecast-driven "
+            "portfolio continues to rebalance weekly.",
+            f"reports/{'week5' if horizon_days == 10 else 'week4'}_{horizon_days}d_target_horizon.md",
+        )
+    if rebalance == "W":
+        return (
+            "Week 3 Weekly Rebalance Comparison",
+            "Week 3 weekly-rebalance comparison: the walk-forward forecast stack is unchanged, and only the "
+            "forecast-driven portfolio rebalance schedule moved from daily to weekly. Baselines are unchanged.",
+            "reports/week3_weekly_rebalance.md",
+        )
+    return (
+        "Week 2 Baseline Comparison",
+        "Week 2 baseline comparison: regime conditioning was removed after failing the preregistered Week 1 criteria. "
+        "This run asks whether the drift-neutral plain logistic forecast adds value over simple economic baselines.",
+        "reports/week2_baselines.md",
+    )
+
+
 def main() -> None:
+    experiment = load_config("config/experiment_mvp.yaml")
+    title, summary_note, output_name = _report_context(experiment)
+    horizon_days = int(experiment["target"]["horizon_days"])
     prediction_path = Path("data/processed/predictions.parquet")
     portfolio_path = Path("data/processed/portfolio_daily.parquet")
     predictions = pd.read_parquet(prediction_path)
@@ -250,13 +276,15 @@ def main() -> None:
         decision = "Reject the plain probabilistic forecast as a tradable signal under the current setup."
 
     out: list[str] = []
-    out.append("# Week 2 Baseline Comparison")
+    out.append(f"# {title}")
     out.append("")
     out.append("## Summary")
     out.append("")
-    out.append(f"> {SUMMARY_NOTE}")
+    out.append(f"> {summary_note}")
     out.append("")
     out.append("## Forecast Metrics (OOS Aggregate)")
+    out.append("")
+    out.append(f"- Forecast label horizon: **{horizon_days} trading days**.")
     out.append("")
     out.append(_markdown_table(forecast_tbl))
     out.append("")
@@ -279,6 +307,9 @@ def main() -> None:
     out.append("")
     out.append("## Execution Sanity")
     out.append("")
+    if experiment["portfolio"].get("rebalance", "D") == "W":
+        out.append("- Forecast-driven models rebalance weekly on the first trading day of each Monday-Sunday week.")
+    out.append(f"- Forecast labels use `fwd_ret_target` over **{horizon_days} trading days**.")
     out.append("- Timing convention: target weights stamped at date `t` are applied to `fwd_ret_1d` from `t` to `t+1`.")
     out.append(
         "- Turnover convention: trading is measured against post-return, pre-trade weights, so passive drift is not charged as turnover."
@@ -310,9 +341,10 @@ def main() -> None:
     out.append(f"- `logit_plain` beats the economic baselines at 5 bps: **{economic_beats_baselines}**.")
     out.append(f"- Sanity check pass: **{sanity_pass}**.")
     out.append("")
-    out.append(f"**Week-2 decision:** {decision}")
+    label = title.split(" Comparison")[0]
+    out.append(f"**{label} decision:** {decision}")
 
-    output_path = Path("reports/week2_baselines.md")
+    output_path = Path(output_name)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(out) + "\n", encoding="utf-8")
 

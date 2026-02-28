@@ -29,6 +29,7 @@ def run_backtest(predictions: pd.DataFrame) -> pd.DataFrame:
         vol_col=experiment["portfolio"]["vol_col"],
         center_col="train_base_rate",
         max_abs_weight=float(experiment["portfolio"]["max_abs_weight"]),
+        rebalance=experiment["portfolio"].get("rebalance", "D"),
     )
     oos_panel = _oos_feature_panel(predictions)
 

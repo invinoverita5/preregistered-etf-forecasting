@@ -9,7 +9,7 @@ from src.features.targets import build_binary_target
 from src.utils.config import load_config
 
 
-def build_feature_frame(prices: pd.DataFrame) -> pd.DataFrame:
+def build_feature_frame(prices: pd.DataFrame, horizon_days: int) -> pd.DataFrame:
     df = prices.sort_values(["symbol", "date"]).copy()
     grouped = df.groupby("symbol", group_keys=False)
 
@@ -26,15 +26,15 @@ def build_feature_frame(prices: pd.DataFrame) -> pd.DataFrame:
         .copy()
     )
     feature_df = df.merge(spy_context, on="date", how="left")
-    feature_df = build_binary_target(feature_df, horizon=1)
+    feature_df = build_binary_target(feature_df, horizon=horizon_days)
     return feature_df
 
 
 def main() -> None:
-    load_config("config/experiment_mvp.yaml")
+    config = load_config("config/experiment_mvp.yaml")
     price_path = Path("data/processed/prices.parquet")
     prices = pd.read_parquet(price_path)
-    feature_df = build_feature_frame(prices)
+    feature_df = build_feature_frame(prices, horizon_days=int(config["target"]["horizon_days"]))
     feature_df.to_parquet("data/processed/features.parquet", index=False)
 
 

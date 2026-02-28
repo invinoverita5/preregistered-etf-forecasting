@@ -4,7 +4,7 @@
 
 This repository is a preregistered, walk-forward study of short-horizon ETF return predictability. It implements a minimal end-to-end research pipeline (data -> features/targets -> out-of-sample forecasts -> portfolio construction with costs -> baseline comparison) designed to be falsifiable and resistant to leakage, data-snooping, and accidental drift in signal-to-position mapping.
 
-The current conclusion is a negative result: under the baseline comparison setup, the plain probabilistic forecast does not add incremental economic value beyond simple baselines, and regime conditioning does not improve forecast quality and was dropped.
+The final conclusion is a negative result: under the fixed walk-forward protocol and baseline set, the plain probabilistic forecast does not add incremental economic value beyond simple baselines, regime conditioning does not improve forecast quality, and extending the label horizon to 5-day and 10-day targets does not rescue the signal family.
 
 ---
 
@@ -22,7 +22,7 @@ The current conclusion is a negative result: under the baseline comparison setup
 
 **Universe:** pooled portfolio across liquid ETFs (see `config/universe.yaml`).
 
-**Targets:** leakage-safe next-day label and forward return (`t` features, `t+1` target).
+**Targets:** leakage-safe forward labels built from `t` features. The current frozen experiment uses a 10-trading-day classification label for the model and retains daily forward returns for portfolio PnL accounting.
 
 **Evaluation:** strict time-ordered walk-forward with out-of-sample predictions only. The final prediction table is deduplicated so the evaluated OOS rows are non-overlapping.
 
@@ -73,6 +73,9 @@ Reports:
 
 - `reports/negative_result_note.md` - research narrative, preregistered priors, and kill rules
 - `reports/week2_baselines.md` - baseline comparison, execution sanity checks (timing/turnover), and final decision
+- `reports/week3_weekly_rebalance.md` - weekly rebalance follow-up using the same walk-forward protocol and baseline set
+- `reports/week4_5d_target_horizon.md` - 5-day target-horizon follow-up with weekly rebalance and unchanged baselines
+- `reports/week5_10d_target_horizon.md` - 10-day target-horizon follow-up with weekly rebalance and unchanged baselines
 
 ---
 
@@ -108,6 +111,27 @@ Appendix (buy and hold per symbol):
 
 **Conclusion:** Under this setup, the plain probabilistic forecast is not incrementally useful as a tradable signal, and regime conditioning was removed after failing preregistered forecast and stability criteria.
 
+Weekly rebalance follow-up:
+
+- `logit_plain` 5 bps Sharpe moved from `0.03` in the daily-rebalance baseline comparison to `-0.04` under weekly rebalancing.
+- average turnover fell from `60.55%` to `29.36%` per day-equivalent observation, but the signal still failed to beat `base_rate` on forecast quality and remained far behind the simple economic baselines.
+
+5-day target-horizon follow-up:
+
+- `logit_plain` 5 bps Sharpe was `-0.03` with a 5-day label and weekly rebalance.
+- forecast quality still degraded versus `base_rate`:
+  - `base_rate`: log loss `0.6842`, Brier `0.2455`
+  - `logit_plain`: log loss `0.6892`, Brier `0.2475`
+- turnover increased versus the prior weekly-rebalance daily-target run (`29.36%` to `37.99%` average daily-equivalent turnover), while the strategy remained economically dominated by the same simple baselines.
+
+10-day target-horizon follow-up:
+
+- `logit_plain` 5 bps Sharpe was `0.04` with a 10-day label and weekly rebalance.
+- forecast quality still degraded versus `base_rate`:
+  - `base_rate`: log loss `0.6789`, Brier `0.2429`
+  - `logit_plain`: log loss `0.6845`, Brier `0.2449`
+- turnover fell modestly versus the 5-day run (`37.99%` to `33.71%` average daily-equivalent turnover), but the strategy still remained economically dominated by the same simple baselines.
+
 ---
 
 ## Tests and sanity checks
@@ -135,15 +159,29 @@ See `tests/` for details.
 
 - The pipeline originally showed non-trivial performance when mapping probabilities around `0.5`. After drift-neutral centering on the train base rate per fold, the apparent edge disappeared, indicating that the earlier results were driven primarily by upward drift plus the mapping rather than incremental predictive power.
 - Simple baseline strategies (equal-weight and vol-target-only) dominate the model under this setup; baseline comparisons are treated as the main economic truth checks.
+- Extending the label horizon from 1 day to 5 trading days did not recover incremental forecast value or economic edge under the same walk-forward and baseline setup.
+- Extending the label horizon to 10 trading days marginally improved net Sharpe versus the 5-day run, but did not beat `base_rate` on forecast quality and remained far below the passive and risk-scaled baselines. That is not enough to justify further search within this signal family.
 
 ---
 
-## Next steps (if continuing research)
+## Final Disposition
 
-Change one dimension only while keeping the same walk-forward protocol and baselines:
+This signal family is closed.
 
-- weekly rebalance (trade less often), or
-- weekly target horizon (predict 5d/10d returns)
+What was tested:
+
+- regime conditioning
+- drift-neutral daily forecasting
+- weekly rebalance with the same forecast
+- 5-day target horizon
+- 10-day target horizon
+
+What survived:
+
+- none of the forecast-driven variants beat `base_rate` on forecast quality
+- none of them approached the simple economic baselines after costs
+
+The repo remains useful as a negative-result research artifact and as an example of a falsifiable, leakage-aware quant workflow.
 
 ---
 

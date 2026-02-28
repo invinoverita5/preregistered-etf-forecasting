@@ -2,14 +2,17 @@
 
 ## Hypothesis
 
-Test whether simple daily features from liquid ETFs contain state-dependent information about next-day returns, and whether conditioning on volatility regimes improves out-of-sample forecast quality enough to survive realistic trading costs.
+Test whether simple features from liquid ETFs contain state-dependent information about short-horizon returns, and whether that information survives realistic costs once translated into a tradable portfolio.
 
 ## Methods
 
 - Universe: `SPY`, `QQQ`, `IWM`, `TLT`, `HYG`, `GLD`
 - Features: `ret_5d`, `ret_20d`, `rv_20d`, `vol_ratio`, `spy_ret_20d`, `spy_rv_20d`
 - Walk-forward: 3 years train, 6 months test, 3 months step
-- Forecast targets: `y_up = 1[r_{t+1} > 0]`
+- Forecast targets:
+  - Week 1-3: `y_up = 1[r_{t+1} > 0]`
+  - Week 4: `y_up = 1[r_{t+5} > 0]`
+  - Week 5: `y_up = 1[r_{t+10} > 0]`
 - Models tested:
   - `logit_plain`
   - `logit_regime` in Week 1 only
@@ -51,7 +54,7 @@ Kill rule for regime conditioning:
 
 Decision: remove regime conditioning from the research path.
 
-### Drift-Neutral Recheck Eliminated The Apparent Edge
+### Week 2: Drift-Neutral Recheck Eliminated The Apparent Edge
 
 The initial portfolio mapping around `0.5` was monetizing market drift. After centering each fold on the train base rate, the economic edge disappeared.
 
@@ -70,12 +73,48 @@ Week 2 portfolio metrics at 5 bps:
 
 `logit_plain` failed both the forecast comparison and the economic baseline comparison.
 
+### Week 3: Weekly Rebalance Reduced Turnover But Did Not Rescue The Signal
+
+Changing only the forecast-driven rebalance schedule from daily to weekly reduced turnover but did not improve the economics:
+
+- `logit_plain` 5 bps Sharpe moved from `0.03` to `-0.04`
+- average turnover fell from `60.55%` to `29.36%`
+- forecast quality remained worse than `base_rate`
+
+This isolated the problem further: the failure was not simply daily trading costs.
+
+### Week 4: 5-Day Target Horizon Failed
+
+Changing only the model label from 1 day to 5 trading days, while keeping weekly rebalance and the same baselines, still failed:
+
+- `base_rate`: log loss `0.6842`, Brier `0.2455`
+- `logit_plain`: log loss `0.6892`, Brier `0.2475`
+- `logit_plain` 5 bps Sharpe: `-0.03`
+
+The 5-day label did not recover forecast edge, and it increased turnover versus the prior weekly-rebalance daily-target run.
+
+### Week 5: 10-Day Target Horizon Also Failed
+
+The final one-dimensional extension moved the label to 10 trading days:
+
+- `base_rate`: log loss `0.6789`, Brier `0.2429`
+- `logit_plain`: log loss `0.6845`, Brier `0.2449`
+- `logit_plain` 5 bps Sharpe: `0.04`
+- `vol_target_only` 5 bps Sharpe: `1.04`
+
+The 10-day label slightly improved net Sharpe relative to the 5-day run, but it still failed the primary test:
+
+- forecast quality remained worse than `base_rate`
+- economic performance remained far behind the passive and risk-scaled baselines
+
 ## Why It Failed / What We Learned
 
 1. Regime conditioning did not add information. It degraded forecast quality, failed fold stability, and showed the wrong sign in the high-volatility regime it was supposed to help.
 2. The earlier positive Sharpe was mostly a portfolio-construction artifact. Mapping around `0.5` retained a long bias in a market with positive drift.
 3. Once the signal was centered on the train base rate, the forecast did not produce tradable edge.
-4. Simple allocation baselines dominated the model. Risk scaling and diversified passive exposure explained more than the daily forecast did.
+4. Lowering trading frequency did not rescue the signal family. Weekly rebalance reduced turnover, but not enough to create edge.
+5. Extending the target horizon to 5 and 10 trading days also failed. The 10-day label was less bad economically than the 5-day label, but still not good enough to beat a trivial base-rate forecast or simple baseline portfolios.
+6. Simple allocation baselines dominated throughout. Risk scaling and diversified passive exposure explained far more than the forecast did.
 
 ## Credibility Checks
 
@@ -86,7 +125,7 @@ Week 2 portfolio metrics at 5 bps:
 
 ## Conclusion
 
-Under this setup, daily ETF direction forecasting with these simple features does not add incremental value over a base-rate forecast and does not survive comparison against straightforward economic baselines after costs.
+Under this setup, this signal family does not add incremental value over a base-rate forecast and does not survive comparison against straightforward economic baselines after costs.
 
 This is a negative result, but it is a valid research outcome:
 
@@ -94,12 +133,16 @@ This is a negative result, but it is a valid research outcome:
 - the signal was stress-tested against leakage and cost artifacts
 - complexity was removed when it did not pay
 
-## Next Experiment
+## Final Disposition
 
-Change one dimension only: keep the same features, costs, and baselines, but move to a lower-frequency decision rule.
+Stop exploring this signal family.
 
-Recommended next test:
+The final sequence tested:
 
-- forecast weekly returns or keep the daily forecast and rebalance weekly
+- regime conditioning
+- drift-neutral daily forecasting
+- weekly rebalance
+- 5-day target horizon
+- 10-day target horizon
 
-That isolates whether the failure came from daily noise and turnover rather than from the feature set alone.
+None of these variants beat the forecast base rate or the simple economic baselines after costs. The most defensible conclusion is that this line of research, as currently specified, should be closed rather than tuned further.
